@@ -1,5 +1,14 @@
 name = "zhutingxuan-blog"
+main = "worker.js"
 compatibility_date = "2025-11-01"
-pages_build_output_dir = "public"
+keep_vars = true
 
-# 部署到 Cloudflare Pages 后，在控制台 Settings -> Bindings 中绑定 D1 数据库，变量名填 DB
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# 如需绑定 D1 数据库，可在下面取消注释并填入你的 zhutingxuan-blog-db 数据库 ID：
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "zhutingxuan-blog-db"
+# database_id = "替换为你的数据库ID"
