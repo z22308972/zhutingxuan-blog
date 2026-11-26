@@ -245,9 +245,9 @@ button {
 
 .sidebar-tools {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
   font-size: 11.5px;
@@ -258,11 +258,12 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 11.5px;
-  color: rgba(248, 249, 250, 0.85);
-  background: rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  color: rgba(248, 249, 250, 0.88);
+  background: rgba(255, 255, 255, 0.12);
   transition: background var(--transition), color var(--transition);
 }
 
