@@ -77,9 +77,9 @@
         continue;
       }
 
-      const fence = line.match(/^```([\w-]*)\s*$/);
+      const fence = line.match(/^```(.*)$/);
       if (fence) {
-        const lang = escapeHtml(fence[1] || "CODE").toUpperCase();
+        const lang = escapeHtml((fence[1] || "").trim().split(/\s+/)[0] || "CODE").toUpperCase();
         const buf = [];
         i++;
         while (i < lines.length && !/^```\s*$/.test(lines[i])) {
@@ -97,9 +97,11 @@
         continue;
       }
 
-      const h = line.match(/^(#{1,4})\s+(.+)$/);
+      const h = line.match(/^(#{1,6})\s+(.*)$/);
       if (h) {
-        out.push(`<h${h[1].length}>${renderInline(h[2].trim())}</h${h[1].length}>`);
+        const level = Math.min(h[1].length, 4);
+        const text = h[2].trim();
+        out.push(text ? `<h${level}>${renderInline(text)}</h${level}>` : `<p>${escapeHtml(line)}</p>`);
         i++;
         continue;
       }
@@ -171,12 +173,16 @@
         i < lines.length &&
         !/^\s*$/.test(lines[i]) &&
         !/^```/.test(lines[i]) &&
-        !/^(#{1,4})\s+/.test(lines[i]) &&
+        !/^(#{1,6})\s+/.test(lines[i]) &&
         !/^\s*>\s?/.test(lines[i]) &&
         !/^\s*[-*+]\s+/.test(lines[i]) &&
         !/^\s*\d+\.\s+/.test(lines[i]) &&
         !/^\s*(?:[-*_]\s*){3,}$/.test(lines[i])
       ) {
+        para.push(lines[i]);
+        i++;
+      }
+      if (para.length === 0) {
         para.push(lines[i]);
         i++;
       }
