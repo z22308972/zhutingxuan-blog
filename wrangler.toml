@@ -7,8 +7,7 @@ keep_vars = true
 directory = "./public"
 binding = "ASSETS"
 
-# 如需绑定 D1 数据库，可在下面取消注释并填入你的 zhutingxuan-blog-db 数据库 ID：
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "zhutingxuan-blog-db"
-# database_id = "替换为你的数据库ID"
+[[d1_databases]]
+binding = "DB"
+database_name = "zhutingxuan-blog-db"
+database_id = "fbd16d12-49b9-4053-aef3-d99dcc464419"
