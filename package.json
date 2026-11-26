@@ -1,0 +1,10 @@
+{
+  "name": "zhutingxuan-blog",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "复刻 Gridea Simple 极简美学并内置在线 Markdown 写作后台的个人博客（Cloudflare Pages + 免费 D1）",
+  "scripts": {
+    "dev": "node --experimental-sqlite dev-server.mjs"
+  }
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zhutingxuan · 极简博客</title>
+  <meta name="description" content="Zhutingxuan 的极简个人博客 — 记录思考、读书、城市生活与数字探索。" />
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232c3533'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-family='sans-serif' font-size='24' font-weight='700'%3EZT%3C/text%3E%3C/svg%3E"
+  />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <!-- 顶部阅读进度条 -->
+  <div class="reading-progress" aria-hidden="true">
+    <div id="reading-progress-fill" class="reading-progress-fill"></div>
+  </div>
+
+  <!-- 轻柔动态粒子背景画布（不干扰正文阅读） -->
+  <canvas id="particle-canvas" class="particle-canvas" aria-hidden="true"></canvas>
+
+  <!-- 左侧固定远山侧边栏（Gridea Simple 经典布局） -->
+  <aside id="sidebar" class="sidebar" aria-label="站点导航">
+    <div class="sidebar-mobile-bar">
+      <a href="#/" class="mobile-brand">
+        <span id="mobile-avatar" class="mobile-avatar">ZT</span>
+        <span id="mobile-site-title">Zhutingxuan</span>
+      </a>
+      <button id="menu-toggle" class="menu-toggle" type="button" aria-label="展开导航菜单">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-inner">
+      <div class="top-container">
+        <a href="#/" class="site-logo-link">
+          <div id="site-logo" class="site-logo">ZT</div>
+        </a>
+        <h1 id="site-title" class="site-title">Zhutingxuan</h1>
+        <nav class="site-nav-list" aria-label="主导航">
+          <a class="site-nav" data-nav="home" href="#/">首页</a>
+          <a class="site-nav" data-nav="categories" href="#/categories">分类</a>
+          <a class="site-nav" data-nav="tags" href="#/tags">标签</a>
+          <a class="site-nav" data-nav="archives" href="#/archives">归档</a>
+          <a class="site-nav" data-nav="about" href="#/about">关于</a>
+        </nav>
+      </div>
+
+      <div class="bottom-container">
+        <div id="site-motto" class="site-description">温故而知新，慢行亦有风</div>
+        <div id="social-row" class="social-row"></div>
+        <div class="sidebar-tools">
+          <span id="footer-domain">blog.zhutingxuan.ggff.net</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button id="particle-toggle" class="sidebar-mini-btn" type="button" title="开启或暂停背景粒子">粒子</button>
+            <a href="#/admin" class="sidebar-mini-btn" title="仅博主登录后可发表与修改">写作后台</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 右侧主内容区 -->
+  <main class="main-container">
+    <div id="app-view" class="content-container">
+      <div class="empty-msg">正在加载博客内容...</div>
+    </div>
+  </main>
+
+  <!-- 隐藏上传控件（封面/正文插图/头像） -->
+  <input id="media-upload-input" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+
+  <!-- 图片灯箱 -->
+  <div id="lightbox-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-label="查看大图">
+    <div class="lightbox-box">
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="关闭">×</button>
+      <img id="lightbox-img" src="" alt="大图预览" />
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="/particles.js"></script>
+  <script src="/markdown.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
