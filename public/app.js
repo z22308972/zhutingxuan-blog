@@ -521,9 +521,12 @@
 
     el.appView.innerHTML = `
       <div class="admin-header">
-        <div>
-          <h2 class="page-title" style="margin-bottom:4px;">写作后台</h2>
-          <div style="font-size:13px;color:var(--text-muted)">仅你本人拥有发布与修改权限</div>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <a href="#/" class="btn btn-outline">← 返回博客</a>
+          <div>
+            <h2 class="page-title" style="margin-bottom:2px;font-size:24px;">写作后台</h2>
+            <div style="font-size:12.5px;color:var(--text-muted)">全屏专注模式 · 仅你本人拥有发布与修改权限</div>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div class="admin-tabs">
@@ -639,12 +642,14 @@
 
     panel.innerHTML = `
       <form id="post-editor-form" class="admin-card">
-        <div class="form-grid">
-          <div class="form-field full">
-            <label class="form-label" for="ed-title">文章标题 *</label>
-            <input id="ed-title" class="input-field" type="text" required placeholder="输入吸引人的文章标题..." value="${escapeHtml(existing?.title || "")}" />
+        <div class="meta-toggle-row">
+          <div style="flex:1;min-width:240px;">
+            <input id="ed-title" class="input-field" style="font-size:18px;font-weight:600;padding:11px 14px;" type="text" required placeholder="输入文章标题..." value="${escapeHtml(existing?.title || "")}" />
           </div>
+          <button id="toggle-meta-btn" class="btn btn-outline" type="button">收起文章信息</button>
+        </div>
 
+        <div id="ed-meta-grid" class="form-grid">
           <div class="form-field">
             <label class="form-label" for="ed-category">文章分类</label>
             <input id="ed-category" class="input-field" type="text" list="cat-suggestions" placeholder="如：城市随笔、效率与技术" value="${escapeHtml(existing?.category || "随笔")}" />
@@ -663,10 +668,10 @@
             <input id="ed-tags" class="input-field" type="text" placeholder="例如：写作, 生活, 上海" value="${escapeHtml((existing?.tags || []).join(", "))}" />
           </div>
 
-          <div class="form-field">
-            <label class="form-label" for="ed-cover">封面图片地址（或直接上传）</label>
+          <div id="cover-drop-zone" class="form-field cover-drop-zone">
+            <label class="form-label" for="ed-cover">封面图（点右侧上传，或直接拖图片到这里）</label>
             <div class="cover-picker-row">
-              <input id="ed-cover" class="input-field" type="text" placeholder="/assets/cover-desk.jpg 或点右侧上传" value="${escapeHtml(existing?.cover || "")}" />
+              <input id="ed-cover" class="input-field" type="text" placeholder="/assets/cover-desk.jpg 或上传/拖入封面" value="${escapeHtml(existing?.cover || "")}" />
               <button id="upload-cover-btn" class="btn btn-outline" type="button" style="flex-shrink:0">上传封面</button>
             </div>
             <img id="ed-cover-preview" class="cover-thumb-preview${existing?.cover ? "" : " hidden"}" src="${escapeHtml(existing?.cover || "")}" alt="封面预览" />
@@ -676,25 +681,32 @@
             <label class="form-label" for="ed-abstract">首页摘要（留空将自动截取正文前 120 字）</label>
             <input id="ed-abstract" class="input-field" type="text" placeholder="用一两句话介绍这篇文章..." value="${escapeHtml(existing?.abstract || "")}" />
           </div>
+        </div>
 
-          <div class="form-field full">
-            <label class="form-label">Markdown 正文（左侧写作，右侧实时预览）</label>
-            <div class="editor-toolbar">
-              <div class="editor-tools-group">
-                <button class="md-tool" type="button" data-md="h2">H2</button>
-                <button class="md-tool" type="button" data-md="h3">H3</button>
-                <button class="md-tool" type="button" data-md="bold">B</button>
-                <button class="md-tool" type="button" data-md="quote">引用</button>
-                <button class="md-tool" type="button" data-md="todo">清单</button>
-                <button class="md-tool" type="button" data-md="code">代码</button>
-                <button class="md-tool" type="button" data-md="link">链接</button>
-              </div>
+        <div class="form-field full" style="margin-bottom:16px;">
+          <div class="editor-toolbar">
+            <div class="editor-tools-group">
+              <button class="md-tool" type="button" data-md="h1">H1</button>
+              <button class="md-tool" type="button" data-md="h2">H2</button>
+              <button class="md-tool" type="button" data-md="h3">H3</button>
+              <button class="md-tool" type="button" data-md="bold">B</button>
+              <button class="md-tool" type="button" data-md="italic">I</button>
+              <button class="md-tool" type="button" data-md="quote">引用</button>
+              <button class="md-tool" type="button" data-md="todo">清单</button>
+              <button class="md-tool" type="button" data-md="code">代码</button>
+              <button class="md-tool" type="button" data-md="link">链接</button>
+            </div>
+            <div class="editor-toolbar-right">
+              <span id="ed-word-count" class="editor-sync-hint">0 字 · 左右滚动实时同步</span>
               <button id="upload-inline-btn" class="btn btn-outline" type="button" style="padding:5px 11px;font-size:12.5px;">📷 插入照片</button>
             </div>
-            <div class="split-editor">
-              <textarea id="ed-content" placeholder="支持完整 Markdown 语法，可随时点击右上角插入照片...">${escapeHtml(existing?.content || "")}</textarea>
-              <div id="ed-preview" class="split-preview post-content"></div>
+          </div>
+          <div id="split-editor" class="split-editor">
+            <div class="editor-write-wrap">
+              <textarea id="ed-content" placeholder="支持 Markdown 实时同步预览 · 直接 Cmd+V 粘贴截图，或把图片拖到正文任意位置松手即可插入 ✨">${escapeHtml(existing?.content || "")}</textarea>
+              <div id="drop-hint-badge" class="drop-hint-badge hidden">松手即可上传并插入到当前位置</div>
             </div>
+            <div id="ed-preview" class="split-preview post-content"></div>
           </div>
         </div>
 
@@ -713,14 +725,325 @@
 
     const ta = document.getElementById("ed-content");
     const preview = document.getElementById("ed-preview");
+    const splitBox = document.getElementById("split-editor");
+    const dropHint = document.getElementById("drop-hint-badge");
+    const wordCountEl = document.getElementById("ed-word-count");
     const coverInput = document.getElementById("ed-cover");
     const coverPreview = document.getElementById("ed-cover-preview");
+    const coverDropZone = document.getElementById("cover-drop-zone");
+    const metaGrid = document.getElementById("ed-meta-grid");
+    const toggleMetaBtn = document.getElementById("toggle-meta-btn");
 
+    toggleMetaBtn.addEventListener("click", () => {
+      const collapsed = metaGrid.classList.toggle("hidden");
+      toggleMetaBtn.textContent = collapsed ? "展开文章信息" : "收起文章信息";
+    });
+
+    // 实时同步渲染（含中文输入法、粘贴、拖拽与字数统计）
     const syncPreview = () => {
-      preview.innerHTML = renderMarkdown(ta.value);
+      const text = ta.value;
+      preview.innerHTML = renderMarkdown(text);
+      const count = text.replace(/\s+/g, "").length;
+      wordCountEl.textContent = `${count} 字 · 左右滚动实时同步`;
+      // 如果光标在文末附近，保持预览区同步跟进
+      if (ta.selectionStart >= text.length - 4 && ta.scrollHeight > ta.clientHeight) {
+        const ratio = ta.scrollTop / Math.max(1, ta.scrollHeight - ta.clientHeight);
+        if (ratio > 0.88) {
+          preview.scrollTop = preview.scrollHeight;
+        }
+      }
     };
     syncPreview();
     ta.addEventListener("input", syncPreview);
+    ta.addEventListener("compositionend", syncPreview);
+    ta.addEventListener("change", syncPreview);
+
+    // 双向平滑滚动同步（避免相互触发抖动）
+    let scrollLock = null;
+    let scrollLockTimer = null;
+    function syncScroll(source, target, lockName) {
+      if (scrollLock && scrollLock !== lockName) return;
+      scrollLock = lockName;
+      clearTimeout(scrollLockTimer);
+      const maxSource = source.scrollHeight - source.clientHeight;
+      const maxTarget = target.scrollHeight - target.clientHeight;
+      if (maxSource > 0 && maxTarget > 0) {
+        target.scrollTop = (source.scrollTop / maxSource) * maxTarget;
+      }
+      scrollLockTimer = setTimeout(() => {
+        scrollLock = null;
+      }, 60);
+    }
+
+    ta.addEventListener("scroll", () => syncScroll(ta, preview, "editor"));
+    preview.addEventListener("scroll", () => syncScroll(preview, ta, "preview"));
+
+    // 计算拖放坐标对应的 textarea 字符精确落点（支持自动换行和中文排版）
+    function getDropOffsetInTextarea(textarea, clientX, clientY) {
+      const rect = textarea.getBoundingClientRect();
+      const style = window.getComputedStyle(textarea);
+      const value = textarea.value;
+      if (!value) return 0;
+
+      // 构造等宽等字体的隐藏镜像层，利用 caretRangeFromPoint/caretPositionFromPoint 获取精准字符索引
+      const mirror = document.createElement("div");
+      const copyProps = [
+        "boxSizing",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "fontStyle",
+        "letterSpacing",
+        "lineHeight",
+        "textTransform",
+        "wordSpacing",
+        "tabSize",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "borderTopWidth",
+        "borderRightWidth",
+        "borderBottomWidth",
+        "borderLeftWidth"
+      ];
+      copyProps.forEach((p) => {
+        mirror.style[p] = style[p];
+      });
+      mirror.style.position = "fixed";
+      mirror.style.left = `${rect.left}px`;
+      mirror.style.top = `${rect.top}px`;
+      mirror.style.width = `${rect.width}px`;
+      mirror.style.height = `${rect.height}px`;
+      mirror.style.overflow = "auto";
+      mirror.style.whiteSpace = "pre-wrap";
+      mirror.style.wordWrap = "break-word";
+      mirror.style.opacity = "0";
+      mirror.style.pointerEvents = "auto";
+      mirror.style.zIndex = "9999";
+
+      const textNode = document.createTextNode(value);
+      mirror.appendChild(textNode);
+      document.body.appendChild(mirror);
+      mirror.scrollTop = textarea.scrollTop;
+      mirror.scrollLeft = textarea.scrollLeft;
+
+      let offset = null;
+      try {
+        if (document.caretPositionFromPoint) {
+          const pos = document.caretPositionFromPoint(clientX, clientY);
+          if (pos && pos.offsetNode === textNode) offset = pos.offset;
+        } else if (document.caretRangeFromPoint) {
+          const range = document.caretRangeFromPoint(clientX, clientY);
+          if (range && range.startContainer === textNode) offset = range.startOffset;
+        }
+      } catch {
+        offset = null;
+      } finally {
+        document.body.removeChild(mirror);
+      }
+
+      if (typeof offset === "number" && offset >= 0 && offset <= value.length) {
+        return offset;
+      }
+
+      // 兜底：按行高估算逻辑行尾位置
+      const lineHeight = parseFloat(style.lineHeight) || 25;
+      const padTop = parseFloat(style.paddingTop) || 18;
+      const relY = clientY - rect.top + textarea.scrollTop - padTop;
+      const targetLine = Math.max(0, Math.floor(relY / lineHeight));
+      const lines = value.split("\n");
+      if (targetLine >= lines.length) return value.length;
+      let idx = 0;
+      for (let i = 0; i <= targetLine; i++) {
+        idx += lines[i].length + (i < lines.length - 1 ? 1 : 0);
+      }
+      return Math.min(idx, value.length);
+    }
+
+    // 统一上传并插入图片到正文指定位置（支持粘贴、拖拽、按钮选择）
+    async function uploadAndInsertBodyImages(files, insertAtOffset) {
+      const imageFiles = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith("image/"));
+      if (imageFiles.length === 0) {
+        showToast("仅支持拖入或粘贴 JPG、PNG、WebP、GIF 图片");
+        return;
+      }
+
+      let pos =
+        typeof insertAtOffset === "number"
+          ? Math.max(0, Math.min(insertAtOffset, ta.value.length))
+          : (ta.selectionStart ?? ta.value.length);
+
+      // 确保图片独立成行，避免打断当前句子
+      const needLeadingNl = pos > 0 && ta.value[pos - 1] !== "\n";
+      const needTrailingNl = pos < ta.value.length && ta.value[pos] !== "\n";
+
+      const token = `uploading-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const placeholder = `${needLeadingNl ? "\n" : ""}![正在上传 ${imageFiles.length} 张图片...](#${token})${needTrailingNl ? "\n" : ""}`;
+      ta.value = ta.value.slice(0, pos) + placeholder + ta.value.slice(pos);
+      ta.selectionStart = ta.selectionEnd = pos + placeholder.length;
+      ta.focus();
+      syncPreview();
+
+      const insertedLines = [];
+      for (const file of imageFiles) {
+        try {
+          const compressed = await compressImage(file, 1400);
+          const { media } = await api("/api/media", {
+            method: "POST",
+            body: JSON.stringify(compressed)
+          });
+          insertedLines.push(`![${media.filename}](${media.url})`);
+        } catch (err) {
+          showToast("图片上传失败：" + err.message);
+        }
+      }
+
+      const finalBlock =
+        insertedLines.length > 0
+          ? `${needLeadingNl ? "\n" : ""}${insertedLines.join("\n\n")}${needTrailingNl ? "\n" : "\n"}`
+          : "";
+
+      const idx = ta.value.indexOf(placeholder);
+      if (idx !== -1) {
+        ta.value = ta.value.slice(0, idx) + finalBlock + ta.value.slice(idx + placeholder.length);
+        const nextCursor = idx + finalBlock.length;
+        ta.selectionStart = ta.selectionEnd = nextCursor;
+      } else if (finalBlock) {
+        ta.value += "\n" + finalBlock;
+      }
+
+      ta.focus();
+      syncPreview();
+      if (insertedLines.length > 0) {
+        showToast(`已成功插入 ${insertedLines.length} 张图片 ✓`);
+      }
+    }
+
+    // 1. 支持 Cmd+V / Ctrl+V 直接粘贴截图或图片上传
+    ta.addEventListener("paste", (e) => {
+      const files = [];
+      const items = e.clipboardData?.items;
+      if (items) {
+        for (const item of items) {
+          if (item.kind === "file" && item.type.startsWith("image/")) {
+            const f = item.getAsFile();
+            if (f) files.push(f);
+          }
+        }
+      }
+      if (files.length === 0 && e.clipboardData?.files?.length) {
+        for (const f of e.clipboardData.files) {
+          if (f.type.startsWith("image/")) files.push(f);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        const start = ta.selectionStart ?? ta.value.length;
+        const end = ta.selectionEnd ?? start;
+        if (end > start) {
+          ta.value = ta.value.slice(0, start) + ta.value.slice(end);
+        }
+        uploadAndInsertBodyImages(files, start);
+      }
+    });
+
+    // 2. 支持拖拽图片到正文任意位置松手精准插入（兼容 Chrome / Safari）
+    function hasDraggedFiles(dt) {
+      if (!dt) return false;
+      if (dt.files && dt.files.length > 0) return true;
+      return Array.from(dt.types || []).includes("Files");
+    }
+
+    let dragDepth = 0;
+    let lastHoverTs = 0;
+    ta.addEventListener("dragenter", (e) => {
+      if (hasDraggedFiles(e.dataTransfer)) {
+        e.preventDefault();
+        dragDepth++;
+        splitBox.classList.add("is-dragover");
+        dropHint.classList.remove("hidden");
+      }
+    });
+
+    ta.addEventListener("dragover", (e) => {
+      if (hasDraggedFiles(e.dataTransfer)) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        splitBox.classList.add("is-dragover");
+        dropHint.classList.remove("hidden");
+        const now = Date.now();
+        if (now - lastHoverTs > 80) {
+          lastHoverTs = now;
+          const hoverOffset = getDropOffsetInTextarea(ta, e.clientX, e.clientY);
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = hoverOffset;
+        }
+      }
+    });
+
+    ta.addEventListener("dragleave", () => {
+      dragDepth = Math.max(0, dragDepth - 1);
+      if (dragDepth === 0) {
+        splitBox.classList.remove("is-dragover");
+        dropHint.classList.add("hidden");
+      }
+    });
+
+    ta.addEventListener("drop", (e) => {
+      const files = e.dataTransfer?.files;
+      dragDepth = 0;
+      splitBox.classList.remove("is-dragover");
+      dropHint.classList.add("hidden");
+      if (files && files.length > 0) {
+        e.preventDefault();
+        const dropOffset = getDropOffsetInTextarea(ta, e.clientX, e.clientY);
+        uploadAndInsertBodyImages(files, dropOffset);
+      }
+    });
+
+    // Tab 缩进支持
+    ta.addEventListener("keydown", (e) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const s = ta.selectionStart ?? ta.value.length;
+        const end = ta.selectionEnd ?? s;
+        ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(end);
+        ta.selectionStart = ta.selectionEnd = s + 2;
+        syncPreview();
+      }
+    });
+
+    // 封面区也支持直接拖拽上传封面图
+    coverDropZone.addEventListener("dragover", (e) => {
+      if (hasDraggedFiles(e.dataTransfer)) {
+        e.preventDefault();
+        coverDropZone.classList.add("is-dragover");
+      }
+    });
+    coverDropZone.addEventListener("dragleave", () => {
+      coverDropZone.classList.remove("is-dragover");
+    });
+    coverDropZone.addEventListener("drop", async (e) => {
+      coverDropZone.classList.remove("is-dragover");
+      const file = Array.from(e.dataTransfer?.files || []).find((f) => f.type.startsWith("image/"));
+      if (!file) return;
+      e.preventDefault();
+      showToast("正在压缩并上传封面图...");
+      try {
+        const compressed = await compressImage(file, 1400);
+        const { media } = await api("/api/media", {
+          method: "POST",
+          body: JSON.stringify(compressed)
+        });
+        coverInput.value = media.url;
+        coverPreview.src = media.url;
+        coverPreview.classList.remove("hidden");
+        showToast("封面图已上传 ✓");
+      } catch (err) {
+        showToast("封面上传失败：" + err.message);
+      }
+    });
 
     coverInput.addEventListener("input", () => {
       const v = coverInput.value.trim();
@@ -735,27 +1058,37 @@
         const sel = ta.value.slice(s, e);
         let ins = "";
         switch (btn.dataset.md) {
+          case "h1": ins = `\n# ${sel || "一级标题"}\n`; break;
           case "h2": ins = `\n## ${sel || "二级标题"}\n`; break;
           case "h3": ins = `\n### ${sel || "三级标题"}\n`; break;
           case "bold": ins = `**${sel || "加粗文字"}**`; break;
+          case "italic": ins = `*${sel || "斜体文字"}*`; break;
           case "quote": ins = `\n> ${sel || "引用内容"}\n`; break;
           case "todo": ins = `\n- [ ] ${sel || "待办事项"}\n`; break;
           case "code": ins = `\n\`\`\`javascript\n${sel || "// 代码示例"}\n\`\`\`\n`; break;
           case "link": ins = `[${sel || "链接文字"}](https://example.com)`; break;
         }
         ta.value = ta.value.slice(0, s) + ins + ta.value.slice(e);
+        ta.selectionStart = ta.selectionEnd = s + ins.length;
         ta.focus();
         syncPreview();
       });
     });
 
+    // 把当前编辑器的上传回调挂到全局，供「📷 插入照片」按钮复用同一逻辑
+    state.onInlineFilesSelected = (files) => {
+      uploadAndInsertBodyImages(files, ta.selectionStart ?? ta.value.length);
+    };
+
     document.getElementById("upload-cover-btn").addEventListener("click", () => {
       state.uploadTarget = "cover";
+      el.mediaInput.multiple = false;
       el.mediaInput.click();
     });
 
     document.getElementById("upload-inline-btn").addEventListener("click", () => {
       state.uploadTarget = "inline";
+      el.mediaInput.multiple = true;
       el.mediaInput.click();
     });
 
@@ -947,10 +1280,16 @@
   }
 
   el.mediaInput.addEventListener("change", async () => {
-    const file = el.mediaInput.files?.[0];
+    const files = Array.from(el.mediaInput.files || []);
     el.mediaInput.value = "";
-    if (!file) return;
+    if (files.length === 0) return;
 
+    if (state.uploadTarget === "inline" && typeof state.onInlineFilesSelected === "function") {
+      await state.onInlineFilesSelected(files);
+      return;
+    }
+
+    const file = files[0];
     showToast("正在压缩并上传图片...");
     try {
       const maxDim = state.uploadTarget === "avatar" ? 480 : 1400;
@@ -969,16 +1308,6 @@
           prev.classList.remove("hidden");
         }
         showToast("封面图已上传 ✓");
-      } else if (state.uploadTarget === "inline") {
-        const ta = document.getElementById("ed-content");
-        const prev = document.getElementById("ed-preview");
-        if (ta) {
-          const s = ta.selectionStart ?? ta.value.length;
-          const ins = `\n![${media.filename}](${media.url})\n`;
-          ta.value = ta.value.slice(0, s) + ins + ta.value.slice(s);
-          if (prev) prev.innerHTML = renderMarkdown(ta.value);
-        }
-        showToast("照片已插入正文 ✓");
       } else if (state.uploadTarget === "avatar") {
         const input = document.getElementById("st-avatar-url");
         if (input) input.value = media.url;
@@ -1006,6 +1335,10 @@
     el.progressFill.style.width = "0%";
 
     const route = parseRoute();
+    const isAdmin = route.page === "admin";
+    document.body.classList.toggle("admin-fullscreen", isAdmin);
+    window.dispatchEvent(new Event("resize"));
+
     switch (route.page) {
       case "home": renderHome(); break;
       case "categories": renderCategories(null); break;
