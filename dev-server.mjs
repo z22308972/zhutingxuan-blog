@@ -120,7 +120,8 @@ async function readBody(req) {
 }
 
 function sendStatic(pathname, res) {
-  const rel = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  let rel = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
+  if (rel === "studio" || rel === "studio/") rel = "studio.html";
   let full = path.resolve(PUBLIC_DIR, rel);
   if (!full.startsWith(PUBLIC_DIR) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
     if (!path.extname(rel)) {

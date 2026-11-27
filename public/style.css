@@ -138,6 +138,24 @@ button {
 
 .site-logo-link {
   display: inline-block;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.site-logo-link:hover .site-logo {
+  transform: scale(1.06);
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.34);
+  border-color: #ffffff;
+}
+
+.mobile-avatar-link {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 50%;
+}
+
+.mobile-brand-title {
+  color: inherit;
 }
 
 .site-logo {

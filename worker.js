@@ -62,6 +62,10 @@ export default {
     }
 
     if (env.ASSETS) {
+      if (url.pathname === "/studio" || url.pathname === "/studio/") {
+        const studioUrl = new URL("/studio.html", url.origin);
+        return env.ASSETS.fetch(new Request(studioUrl, request));
+      }
       return env.ASSETS.fetch(request);
     }
     return new Response("Not Found", { status: 404 });
