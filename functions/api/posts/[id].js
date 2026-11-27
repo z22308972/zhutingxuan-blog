@@ -1,5 +1,5 @@
 import { isAuthenticated, jsonResponse, requireAuth } from "../../../lib/auth.js";
-import { ensureSchema, parseTags, serializePost, slugify } from "../../../lib/db.js";
+import { ensureSchema, ensureTaxonomyEntries, parseTags, serializePost, slugify } from "../../../lib/db.js";
 
 function sanitizeTags(tags) {
   if (!Array.isArray(tags)) return [];
@@ -96,6 +96,8 @@ export async function onRequestPut({ request, env, params }) {
       params.id
     )
     .run();
+
+  await ensureTaxonomyEntries(env.DB, category, tags);
 
   return jsonResponse({
     post: {

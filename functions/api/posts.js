@@ -1,5 +1,5 @@
 import { isAuthenticated, jsonResponse, requireAuth } from "../../lib/auth.js";
-import { ensureSchema, generateId, serializePost, slugify } from "../../lib/db.js";
+import { ensureSchema, ensureTaxonomyEntries, generateId, serializePost, slugify } from "../../lib/db.js";
 
 function sanitizeTags(tags) {
   if (!Array.isArray(tags)) return [];
@@ -93,6 +93,8 @@ export async function onRequestPost({ request, env }) {
       now
     )
     .run();
+
+  await ensureTaxonomyEntries(env.DB, category, tags);
 
   return jsonResponse(
     {

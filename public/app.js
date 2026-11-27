@@ -18,11 +18,15 @@
     },
     posts: [],
     adminPosts: [],
+    taxonomies: {
+      categories: [],
+      tags: []
+    },
     authenticated: false,
     configured: true,
     homeCategory: "全部",
     homeSearch: "",
-    adminTab: "list", // 'list' | 'editor' | 'settings'
+    adminTab: "list", // 'list' | 'editor' | 'taxonomies' | 'settings'
     editingPostId: null,
     uploadTarget: null // 'cover' | 'inline' | 'avatar'
   };
@@ -517,7 +521,10 @@
       return;
     }
 
-    await loadAdminPosts();
+    await Promise.all([loadAdminPosts(), loadTaxonomies()]);
+
+    const catCount = state.taxonomies.categories.length;
+    const tagCount = state.taxonomies.tags.length;
 
     el.appView.innerHTML = `
       <div class="admin-header">
@@ -532,6 +539,7 @@
           <div class="admin-tabs">
             <button type="button" class="admin-tab${state.adminTab === "list" ? " active" : ""}" data-tab="list">文章管理 (${state.adminPosts.length})</button>
             <button type="button" class="admin-tab${state.adminTab === "editor" ? " active" : ""}" data-tab="editor">${state.editingPostId ? "编辑文章" : "写新文章"}</button>
+            <button type="button" class="admin-tab${state.adminTab === "taxonomies" ? " active" : ""}" data-tab="taxonomies">分类与标签 (${catCount}/${tagCount})</button>
             <button type="button" class="admin-tab${state.adminTab === "settings" ? " active" : ""}" data-tab="settings">站点设置</button>
           </div>
           <button id="admin-logout-btn" class="btn btn-outline" type="button">退出后台</button>
@@ -560,6 +568,7 @@
     const panel = document.getElementById("admin-panel");
     if (state.adminTab === "list") renderAdminList(panel);
     else if (state.adminTab === "editor") renderAdminEditor(panel);
+    else if (state.adminTab === "taxonomies") renderAdminTaxonomies(panel);
     else renderAdminSettings(panel);
   }
 
@@ -636,9 +645,10 @@
       ? state.adminPosts.find((p) => p.id === state.editingPostId)
       : null;
     const today = new Date().toISOString().slice(0, 10);
-    const existingCats = Array.from(
-      new Set(["效率与技术", "城市随笔", "数字花园", "读书笔记", ...state.adminPosts.map((p) => p.category || "随笔")])
-    );
+
+    const managedCats = state.taxonomies.categories.map((c) => c.name);
+    let selectedCategory = existing?.category || managedCats[0] || "随笔";
+    let selectedTags = Array.isArray(existing?.tags) ? [...existing.tags] : [];
 
     panel.innerHTML = `
       <form id="post-editor-form" class="admin-card">
@@ -650,22 +660,38 @@
         </div>
 
         <div id="ed-meta-grid" class="form-grid">
-          <div class="form-field">
-            <label class="form-label" for="ed-category">文章分类</label>
-            <input id="ed-category" class="input-field" type="text" list="cat-suggestions" placeholder="如：城市随笔、效率与技术" value="${escapeHtml(existing?.category || "随笔")}" />
-            <datalist id="cat-suggestions">
-              ${existingCats.map((c) => `<option value="${escapeHtml(c)}"></option>`).join("")}
-            </datalist>
+          <div class="form-field full">
+            <div class="picker-label-row">
+              <label class="form-label">文章分类（点击即可选择）</label>
+              <button type="button" class="text-link-btn" id="jump-manage-tax-btn">管理分类与标签 →</button>
+            </div>
+            <div class="taxonomy-picker-box">
+              <div id="ed-cat-pills" class="picker-pills"></div>
+              <div class="quick-add-row">
+                <input id="ed-new-cat-input" class="input-field input-compact" type="text" maxlength="32" placeholder="输入新分类名，回车或点击添加..." />
+                <button id="ed-add-cat-btn" class="btn btn-outline btn-compact" type="button">+ 新建分类</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-field full">
+            <div class="picker-label-row">
+              <label class="form-label">文章标签（点击多选，最多 10 个）</label>
+              <span id="ed-tag-count-hint" class="picker-hint">已选 ${selectedTags.length} 个</span>
+            </div>
+            <div class="taxonomy-picker-box">
+              <div id="ed-selected-tags" class="selected-tags-row"></div>
+              <div id="ed-tag-pills" class="picker-pills"></div>
+              <div class="quick-add-row">
+                <input id="ed-new-tag-input" class="input-field input-compact" type="text" maxlength="24" placeholder="输入新标签名，回车或点击添加并选中..." />
+                <button id="ed-add-tag-btn" class="btn btn-outline btn-compact" type="button">+ 新建标签</button>
+              </div>
+            </div>
           </div>
 
           <div class="form-field">
             <label class="form-label" for="ed-date">发布日期</label>
             <input id="ed-date" class="input-field" type="date" value="${escapeHtml(existing?.published_at || today)}" />
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="ed-tags">标签（用逗号分隔）</label>
-            <input id="ed-tags" class="input-field" type="text" placeholder="例如：写作, 生活, 上海" value="${escapeHtml((existing?.tags || []).join(", "))}" />
           </div>
 
           <div id="cover-drop-zone" class="form-field cover-drop-zone">
@@ -733,6 +759,179 @@
     const coverDropZone = document.getElementById("cover-drop-zone");
     const metaGrid = document.getElementById("ed-meta-grid");
     const toggleMetaBtn = document.getElementById("toggle-meta-btn");
+    const catPillsEl = document.getElementById("ed-cat-pills");
+    const newCatInput = document.getElementById("ed-new-cat-input");
+    const addCatBtn = document.getElementById("ed-add-cat-btn");
+    const selectedTagsEl = document.getElementById("ed-selected-tags");
+    const tagPillsEl = document.getElementById("ed-tag-pills");
+    const tagCountHint = document.getElementById("ed-tag-count-hint");
+    const newTagInput = document.getElementById("ed-new-tag-input");
+    const addTagBtn = document.getElementById("ed-add-tag-btn");
+
+    function updateTaxTabCount() {
+      const tab = el.appView.querySelector('.admin-tab[data-tab="taxonomies"]');
+      if (tab) {
+        tab.textContent = `分类与标签 (${state.taxonomies.categories.length}/${state.taxonomies.tags.length})`;
+      }
+    }
+
+    function renderEditorTaxonomyPickers() {
+      updateTaxTabCount();
+      const catNames = state.taxonomies.categories.map((c) => c.name);
+      if (selectedCategory && !catNames.includes(selectedCategory)) {
+        catNames.unshift(selectedCategory);
+      }
+      catPillsEl.innerHTML = catNames.length
+        ? catNames
+            .map(
+              (c) =>
+                `<button type="button" class="pick-pill${selectedCategory === c ? " active" : ""}" data-pick-cat="${escapeHtml(c)}">${
+                  selectedCategory === c ? "✓ " : ""
+                }${escapeHtml(c)}</button>`
+            )
+            .join("")
+        : `<span class="picker-empty">暂无分类，请在下方新建</span>`;
+
+      tagCountHint.textContent = `已选 ${selectedTags.length} / 10 个`;
+      selectedTagsEl.innerHTML = selectedTags.length
+        ? selectedTags
+            .map(
+              (t) =>
+                `<span class="selected-tag-chip"># ${escapeHtml(t)} <button type="button" class="chip-remove-btn" data-remove-tag="${escapeHtml(t)}" aria-label="移除标签">×</button></span>`
+            )
+            .join("")
+        : `<span class="picker-empty">暂未选择标签，点击下方标签库或新建添加</span>`;
+
+      const tagNames = state.taxonomies.tags.map((t) => t.name);
+      selectedTags.forEach((t) => {
+        if (!tagNames.includes(t)) tagNames.push(t);
+      });
+      tagPillsEl.innerHTML = tagNames.length
+        ? tagNames
+            .map((t) => {
+              const active = selectedTags.includes(t);
+              return `<button type="button" class="pick-pill tag-mode${active ? " active" : ""}" data-pick-tag="${escapeHtml(t)}">${
+                active ? "✓ " : "# "
+              }${escapeHtml(t)}</button>`;
+            })
+            .join("")
+        : `<span class="picker-empty">标签库暂无标签，直接在下方输入新建</span>`;
+    }
+
+    renderEditorTaxonomyPickers();
+
+    catPillsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pick-cat]");
+      if (!btn) return;
+      selectedCategory = btn.dataset.pickCat;
+      renderEditorTaxonomyPickers();
+    });
+
+    tagPillsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pick-tag]");
+      if (!btn) return;
+      const t = btn.dataset.pickTag;
+      if (selectedTags.includes(t)) {
+        selectedTags = selectedTags.filter((x) => x !== t);
+      } else {
+        if (selectedTags.length >= 10) {
+          showToast("每篇文章最多选择 10 个标签");
+          return;
+        }
+        selectedTags.push(t);
+      }
+      renderEditorTaxonomyPickers();
+    });
+
+    selectedTagsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-remove-tag]");
+      if (!btn) return;
+      selectedTags = selectedTags.filter((x) => x !== btn.dataset.removeTag);
+      renderEditorTaxonomyPickers();
+    });
+
+    async function handleQuickAddCategory() {
+      const name = newCatInput.value.trim().slice(0, 32);
+      if (!name) return;
+      const exists = state.taxonomies.categories.some((c) => c.name === name);
+      if (exists) {
+        selectedCategory = name;
+        newCatInput.value = "";
+        renderEditorTaxonomyPickers();
+        showToast(`已选中分类「${name}」`);
+        return;
+      }
+      addCatBtn.disabled = true;
+      try {
+        const res = await api("/api/taxonomies", {
+          method: "POST",
+          body: JSON.stringify({ kind: "category", name })
+        });
+        state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+        selectedCategory = name;
+        newCatInput.value = "";
+        renderEditorTaxonomyPickers();
+        showToast(`已新建并选中分类「${name}」 ✓`);
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        addCatBtn.disabled = false;
+      }
+    }
+
+    async function handleQuickAddTag() {
+      const raw = newTagInput.value.trim();
+      if (!raw) return;
+      const names = raw
+        .split(/[,，]/)
+        .map((x) => x.trim().slice(0, 24))
+        .filter(Boolean);
+      if (!names.length) return;
+
+      addTagBtn.disabled = true;
+      try {
+        for (const name of names) {
+          if (!state.taxonomies.tags.some((t) => t.name === name)) {
+            const res = await api("/api/taxonomies", {
+              method: "POST",
+              body: JSON.stringify({ kind: "tag", name })
+            });
+            state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+          }
+          if (!selectedTags.includes(name) && selectedTags.length < 10) {
+            selectedTags.push(name);
+          }
+        }
+        newTagInput.value = "";
+        renderEditorTaxonomyPickers();
+        showToast(`已添加标签：${names.join("、")} ✓`);
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        addTagBtn.disabled = false;
+      }
+    }
+
+    addCatBtn.addEventListener("click", handleQuickAddCategory);
+    newCatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleQuickAddCategory();
+      }
+    });
+
+    addTagBtn.addEventListener("click", handleQuickAddTag);
+    newTagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleQuickAddTag();
+      }
+    });
+
+    document.getElementById("jump-manage-tax-btn").addEventListener("click", () => {
+      state.adminTab = "taxonomies";
+      renderAdmin();
+    });
 
     toggleMetaBtn.addEventListener("click", () => {
       const collapsed = metaGrid.classList.toggle("hidden");
@@ -1103,15 +1302,11 @@
       const saveBtn = document.getElementById("ed-save-btn");
       saveBtn.disabled = true;
 
-      const tags = document
-        .getElementById("ed-tags")
-        .value.split(/[,，]/)
-        .map((t) => t.trim())
-        .filter(Boolean);
+      const tags = selectedTags.slice(0, 10);
 
       const payload = {
         title: document.getElementById("ed-title").value.trim(),
-        category: document.getElementById("ed-category").value.trim() || "随笔",
+        category: (selectedCategory || "").trim() || "随笔",
         published_at: document.getElementById("ed-date").value || today,
         tags,
         cover: coverInput.value.trim(),
@@ -1131,8 +1326,7 @@
               body: JSON.stringify(payload)
             });
 
-        await refreshPublicPosts();
-        await loadAdminPosts();
+        await Promise.all([refreshPublicPosts(), loadAdminPosts(), loadTaxonomies()]);
         state.editingPostId = null;
         showToast(existing ? "文章修改已保存 ✓" : "文章发布成功 🎉");
         if (payload.published && res.post?.slug) {
@@ -1146,6 +1340,170 @@
       } finally {
         saveBtn.disabled = false;
       }
+    });
+  }
+
+  function renderAdminTaxonomies(panel) {
+    const cats = state.taxonomies.categories || [];
+    const tags = state.taxonomies.tags || [];
+
+    panel.innerHTML = `
+      <div class="taxonomy-admin-grid">
+        <section class="admin-card">
+          <div class="taxonomy-card-head">
+            <div>
+              <strong style="font-size:16px;">分类管理</strong>
+              <p class="taxonomy-card-sub">共 ${cats.length} 个分类 · 写文章时可直接一键点选</p>
+            </div>
+          </div>
+          <form id="add-cat-form" class="taxonomy-add-form">
+            <input id="tax-new-cat" class="input-field" type="text" maxlength="32" placeholder="输入新分类名称（如：期末复习、读书笔记）" required />
+            <button class="btn btn-accent" type="submit" style="flex-shrink:0">+ 添加分类</button>
+          </form>
+          <div class="taxonomy-list">
+            ${
+              cats.length === 0
+                ? '<div class="empty-msg" style="padding:28px 12px;">还没有分类，先在上方添加一个吧</div>'
+                : cats
+                    .map(
+                      (c) => `
+              <div class="taxonomy-row">
+                <div class="taxonomy-row-info">
+                  <span class="taxonomy-row-name">${escapeHtml(c.name)}</span>
+                  <span class="taxonomy-row-badge">${c.count ? `${c.count} 篇文章` : "暂未使用"}</span>
+                </div>
+                <div class="taxonomy-row-actions">
+                  <button type="button" class="btn btn-outline btn-compact tax-rename-btn" data-kind="category" data-name="${escapeHtml(c.name)}">重命名</button>
+                  <button type="button" class="btn btn-danger btn-compact tax-del-btn" data-kind="category" data-name="${escapeHtml(c.name)}" data-count="${c.count}">删除</button>
+                </div>
+              </div>`
+                    )
+                    .join("")
+            }
+          </div>
+        </section>
+
+        <section class="admin-card">
+          <div class="taxonomy-card-head">
+            <div>
+              <strong style="font-size:16px;">标签管理</strong>
+              <p class="taxonomy-card-sub">共 ${tags.length} 个标签 · 写文章时支持点击多选</p>
+            </div>
+          </div>
+          <form id="add-tag-form" class="taxonomy-add-form">
+            <input id="tax-new-tag" class="input-field" type="text" maxlength="24" placeholder="输入新标签名称（如：Gemini、iPhone、教程）" required />
+            <button class="btn btn-accent" type="submit" style="flex-shrink:0">+ 添加标签</button>
+          </form>
+          <div class="taxonomy-list">
+            ${
+              tags.length === 0
+                ? '<div class="empty-msg" style="padding:28px 12px;">还没有标签，先在上方添加一个吧</div>'
+                : tags
+                    .map(
+                      (t) => `
+              <div class="taxonomy-row">
+                <div class="taxonomy-row-info">
+                  <span class="taxonomy-row-name"># ${escapeHtml(t.name)}</span>
+                  <span class="taxonomy-row-badge">${t.count ? `${t.count} 篇文章` : "暂未使用"}</span>
+                </div>
+                <div class="taxonomy-row-actions">
+                  <button type="button" class="btn btn-outline btn-compact tax-rename-btn" data-kind="tag" data-name="${escapeHtml(t.name)}">重命名</button>
+                  <button type="button" class="btn btn-danger btn-compact tax-del-btn" data-kind="tag" data-name="${escapeHtml(t.name)}" data-count="${t.count}">删除</button>
+                </div>
+              </div>`
+                    )
+                    .join("")
+            }
+          </div>
+        </section>
+      </div>
+    `;
+
+    document.getElementById("add-cat-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("tax-new-cat");
+      const name = input.value.trim();
+      if (!name) return;
+      try {
+        const res = await api("/api/taxonomies", {
+          method: "POST",
+          body: JSON.stringify({ kind: "category", name })
+        });
+        state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+        showToast(`已添加分类「${name}」 ✓`);
+        renderAdmin();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    document.getElementById("add-tag-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("tax-new-tag");
+      const name = input.value.trim();
+      if (!name) return;
+      try {
+        const res = await api("/api/taxonomies", {
+          method: "POST",
+          body: JSON.stringify({ kind: "tag", name })
+        });
+        state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+        showToast(`已添加标签「${name}」 ✓`);
+        renderAdmin();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    panel.querySelectorAll(".tax-rename-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const kind = btn.dataset.kind;
+        const oldName = btn.dataset.name;
+        const label = kind === "category" ? "分类" : "标签";
+        const newName = window.prompt(`重命名${label}「${oldName}」为：`, oldName);
+        if (!newName || newName.trim() === oldName) return;
+        try {
+          const res = await api("/api/taxonomies", {
+            method: "PUT",
+            body: JSON.stringify({ kind, oldName, newName: newName.trim() })
+          });
+          state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+          await Promise.all([refreshPublicPosts(), loadAdminPosts()]);
+          showToast(`${label}已重命名为「${newName.trim()}」 ✓`);
+          renderAdmin();
+        } catch (err) {
+          showToast("重命名失败：" + err.message);
+        }
+      });
+    });
+
+    panel.querySelectorAll(".tax-del-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const kind = btn.dataset.kind;
+        const name = btn.dataset.name;
+        const count = Number(btn.dataset.count || 0);
+        const msg =
+          kind === "category"
+            ? count > 0
+              ? `分类「${name}」下有 ${count} 篇文章，删除后这些文章将归入「未分类」，确定删除吗？`
+              : `确定删除分类「${name}」吗？`
+            : count > 0
+            ? `有 ${count} 篇文章使用了标签「${name}」，删除后将从这些文章中移除该标签，确定删除吗？`
+            : `确定删除标签「${name}」吗？`;
+        if (!window.confirm(msg)) return;
+        try {
+          const res = await api(
+            `/api/taxonomies?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(name)}`,
+            { method: "DELETE" }
+          );
+          state.taxonomies = { categories: res.categories || [], tags: res.tags || [] };
+          await Promise.all([refreshPublicPosts(), loadAdminPosts()]);
+          showToast(`已删除${kind === "category" ? "分类" : "标签"}「${name}」`);
+          renderAdmin();
+        } catch (err) {
+          showToast("删除失败：" + err.message);
+        }
+      });
     });
   }
 
@@ -1329,6 +1687,18 @@
     state.adminPosts = res.posts || [];
   }
 
+  async function loadTaxonomies() {
+    try {
+      const res = await api("/api/taxonomies");
+      state.taxonomies = {
+        categories: res.categories || [],
+        tags: res.tags || []
+      };
+    } catch {
+      // keep existing taxonomies
+    }
+  }
+
   async function renderCurrentRoute() {
     el.sidebar.classList.remove("open");
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -1399,15 +1769,20 @@
 
   async function boot() {
     try {
-      const [meRes, siteRes, postsRes] = await Promise.all([
+      const [meRes, siteRes, postsRes, taxRes] = await Promise.all([
         api("/api/me"),
         api("/api/site"),
-        api("/api/posts")
+        api("/api/posts"),
+        api("/api/taxonomies").catch(() => ({ categories: [], tags: [] }))
       ]);
       state.authenticated = Boolean(meRes.authenticated);
       state.configured = Boolean(meRes.configured);
       state.site = siteRes.settings || state.site;
       state.posts = postsRes.posts || [];
+      state.taxonomies = {
+        categories: taxRes.categories || [],
+        tags: taxRes.tags || []
+      };
       renderSidebar();
       await renderCurrentRoute();
     } catch (err) {
