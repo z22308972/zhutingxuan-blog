@@ -1,5 +1,5 @@
 import { isAuthenticated, jsonResponse, requireAuth } from "../../../lib/auth.js";
-import { ensureSchema, ensureTaxonomyEntries, parseTags, serializePost, slugify } from "../../../lib/db.js";
+import { ensureSchema, ensureTaxonomyEntries, generateEnglishSlug, parseTags, serializePost } from "../../../lib/db.js";
 
 function sanitizeTags(tags) {
   if (!Array.isArray(tags)) return [];
@@ -49,7 +49,7 @@ export async function onRequestPut({ request, env, params }) {
 
   let slug = existing.slug;
   if (body.slug !== undefined && String(body.slug).trim()) {
-    const candidate = slugify(body.slug);
+    const candidate = await generateEnglishSlug(body.slug);
     const conflict = await env.DB.prepare(`SELECT id FROM posts WHERE slug = ? AND id != ?`)
       .bind(candidate, params.id)
       .first();

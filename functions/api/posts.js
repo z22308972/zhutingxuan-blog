@@ -1,5 +1,5 @@
 import { isAuthenticated, jsonResponse, requireAuth } from "../../lib/auth.js";
-import { ensureSchema, ensureTaxonomyEntries, generateId, serializePost, slugify } from "../../lib/db.js";
+import { ensureSchema, ensureTaxonomyEntries, generateEnglishSlug, generateId, serializePost } from "../../lib/db.js";
 
 function sanitizeTags(tags) {
   if (!Array.isArray(tags)) return [];
@@ -56,7 +56,7 @@ export async function onRequestPost({ request, env }) {
 
   const now = new Date().toISOString();
   const id = generateId("post");
-  let slug = slugify(body.slug || title);
+  let slug = await generateEnglishSlug(body.slug || title);
   const existingSlug = await env.DB.prepare(`SELECT id FROM posts WHERE slug = ?`)
     .bind(slug)
     .first();

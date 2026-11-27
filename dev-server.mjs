@@ -19,6 +19,7 @@ import * as postViewRoute from "./functions/api/posts/[id]/view.js";
 import * as mediaRoute from "./functions/api/media.js";
 import * as mediaByIdRoute from "./functions/api/media/[id].js";
 import * as taxonomiesRoute from "./functions/api/taxonomies.js";
+import * as slugRoute from "./functions/api/slug.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -97,6 +98,7 @@ function matchRoute(pathname) {
   if (pathname === "/api/posts") return { mod: postsRoute, params: {} };
   if (pathname === "/api/media") return { mod: mediaRoute, params: {} };
   if (pathname === "/api/taxonomies") return { mod: taxonomiesRoute, params: {} };
+  if (pathname === "/api/slug") return { mod: slugRoute, params: {} };
 
   const postViewMatch = pathname.match(/^\/api\/posts\/([^/]+)\/view$/);
   if (postViewMatch) return { mod: postViewRoute, params: { id: decodeURIComponent(postViewMatch[1]) } };

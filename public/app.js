@@ -837,6 +837,22 @@
             </div>
           </div>
 
+          <div class="form-field full">
+            <div class="picker-label-row">
+              <label class="form-label" for="ed-slug">文章英文路由（URL Slug · 留空将自动把中文标题翻译为英文）</label>
+              <span class="picker-hint">${
+                existing && /[\u4e00-\u9fff]/.test(existing.slug || "")
+                  ? "⚠️ 当前路由含中文，可点右侧按钮一键转为英文"
+                  : "最终访问地址：/#/post/英文路由"
+              }</span>
+            </div>
+            <div class="slug-input-row">
+              <span class="slug-prefix">/#/post/</span>
+              <input id="ed-slug" class="input-field slug-input" type="text" maxlength="64" placeholder="如：ios-multi-open-muse（新建留空自动翻译）" value="${escapeHtml(existing?.slug || "")}" />
+              <button id="auto-slug-btn" class="btn btn-outline btn-compact" type="button">✨ 自动翻译英文路由</button>
+            </div>
+          </div>
+
           <div class="form-field">
             <label class="form-label" for="ed-date">发布日期</label>
             <input id="ed-date" class="input-field" type="date" value="${escapeHtml(existing?.published_at || today)}" />
@@ -1079,6 +1095,56 @@
     document.getElementById("jump-manage-tax-btn").addEventListener("click", () => {
       state.adminTab = "taxonomies";
       renderAdmin();
+    });
+
+    const titleInput = document.getElementById("ed-title");
+    const slugInput = document.getElementById("ed-slug");
+    const autoSlugBtn = document.getElementById("auto-slug-btn");
+    let slugManuallyEdited = Boolean(existing?.slug);
+
+    async function requestAutoSlug(silent = false) {
+      const source = titleInput.value.trim() || slugInput.value.trim();
+      if (!source) {
+        if (!silent) showToast("请先输入文章标题再翻译路由");
+        return;
+      }
+      autoSlugBtn.disabled = true;
+      const oldText = autoSlugBtn.textContent;
+      autoSlugBtn.textContent = "翻译中...";
+      try {
+        const res = await api("/api/slug", {
+          method: "POST",
+          body: JSON.stringify({
+            title: source,
+            excludeId: existing?.id || ""
+          })
+        });
+        if (res.slug) {
+          slugInput.value = res.slug;
+          if (!silent) showToast(`已生成英文路由：${res.slug} ✓`);
+        }
+      } catch (err) {
+        if (!silent) showToast("生成路由失败：" + err.message);
+      } finally {
+        autoSlugBtn.disabled = false;
+        autoSlugBtn.textContent = oldText;
+      }
+    }
+
+    autoSlugBtn.addEventListener("click", () => {
+      slugManuallyEdited = true;
+      requestAutoSlug(false);
+    });
+
+    slugInput.addEventListener("input", () => {
+      slugManuallyEdited = Boolean(slugInput.value.trim());
+    });
+
+    // 写新文章时输入中文标题失焦自动生成英文路由预览
+    titleInput.addEventListener("blur", () => {
+      if (!existing && !slugManuallyEdited && titleInput.value.trim() && !slugInput.value.trim()) {
+        requestAutoSlug(true);
+      }
     });
 
     toggleMetaBtn.addEventListener("click", () => {
@@ -1454,6 +1520,7 @@
 
       const payload = {
         title: document.getElementById("ed-title").value.trim(),
+        slug: slugInput.value.trim(),
         category: (selectedCategory || "").trim() || "随笔",
         published_at: document.getElementById("ed-date").value || today,
         tags,

@@ -1400,6 +1400,31 @@ body.admin-fullscreen .content-container {
   gap: 8px;
 }
 
+.slug-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.slug-prefix {
+  font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: #f1f3f5;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 9px 11px;
+  flex-shrink: 0;
+}
+
+.slug-input {
+  flex: 1;
+  min-width: 180px;
+  font-family: "SF Mono", "JetBrains Mono", Menlo, monospace;
+  font-size: 13.5px;
+}
+
 .input-compact {
   padding: 7px 11px;
   font-size: 13px;
