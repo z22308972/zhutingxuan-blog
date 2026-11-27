@@ -20,26 +20,38 @@
   }
 
   function renderInline(text) {
-    const codeTokens = [];
+    const tokens = [];
+    const stash = (html) => {
+      const idx = tokens.length;
+      tokens.push(html);
+      return `\u0000TOK${idx}\u0000`;
+    };
     let s = escapeHtml(text);
 
-    s = s.replace(/`([^`\n]+)`/g, (_, code) => {
-      const idx = codeTokens.length;
-      codeTokens.push(`<code>${code}</code>`);
-      return `\u0000CODE${idx}\u0000`;
-    });
+    s = s.replace(/`([^`\n]+)`/g, (_, code) => stash(`<code>${code}</code>`));
 
     s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, rawUrl) => {
       const safe = sanitizeUrl(rawUrl);
       if (!safe) return escapeHtml(alt || "");
-      return `<img src="${escapeHtml(safe)}" alt="${alt || "配图"}" loading="lazy" data-lightbox-src="${escapeHtml(safe)}" />`;
+      return stash(
+        `<img src="${escapeHtml(safe)}" alt="${alt || "配图"}" loading="lazy" data-lightbox-src="${escapeHtml(safe)}" />`
+      );
     });
 
     s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, rawUrl) => {
       const safe = sanitizeUrl(rawUrl);
       if (!safe) return label;
       const ext = /^https?:\/\//i.test(safe) ? ' target="_blank" rel="noopener noreferrer"' : "";
-      return `<a href="${escapeHtml(safe)}"${ext}>${label}</a>`;
+      return stash(`<a href="${escapeHtml(safe)}"${ext}>${label}</a>`);
+    });
+
+    // 自动识别正文中的裸网址（https:// 或 http://），直接粘贴即可点击跳转
+    s = s.replace(/(https?:\/\/[^\s<>"'）)】」』，。；！？、]+)/gi, (rawUrl) => {
+      const cleaned = rawUrl.replace(/[.,;:!?]+$/, "");
+      const trailing = rawUrl.slice(cleaned.length);
+      const safe = sanitizeUrl(cleaned);
+      if (!safe) return rawUrl;
+      return stash(`<a href="${escapeHtml(safe)}" target="_blank" rel="noopener noreferrer">${cleaned}</a>`) + trailing;
     });
 
     s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -47,7 +59,7 @@
     s = s.replace(/~~([^~]+)~~/g, "<del>$1</del>");
     s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
 
-    return s.replace(/\u0000CODE(\d+)\u0000/g, (_, idx) => codeTokens[Number(idx)] || "");
+    return s.replace(/\u0000TOK(\d+)\u0000/g, (_, idx) => tokens[Number(idx)] || "");
   }
 
   function isTableDivider(line) {

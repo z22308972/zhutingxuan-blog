@@ -1029,7 +1029,13 @@
           case "quote": ins = `\n> ${sel || "引用内容"}\n`; break;
           case "todo": ins = `\n- [ ] ${sel || "待办事项"}\n`; break;
           case "code": ins = `\n\`\`\`javascript\n${sel || "// 代码示例"}\n\`\`\`\n`; break;
-          case "link": ins = `[${sel || "链接文字"}](https://example.com)`; break;
+          case "link": {
+            const trimmed = sel.trim();
+            ins = /^https?:\/\//i.test(trimmed)
+              ? `[${trimmed}](${trimmed})`
+              : `[${sel || "链接文字"}](https://)`;
+            break;
+          }
         }
         ta.value = ta.value.slice(0, s) + ins + ta.value.slice(e);
         ta.selectionStart = ta.selectionEnd = s + ins.length;
