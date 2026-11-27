@@ -122,6 +122,28 @@ export async function onRequestDelete({ request, env, params }) {
   if (denied) return denied;
   await ensureSchema(env.DB);
 
+  const existing = await env.DB.prepare(`SELECT * FROM posts WHERE id = ?`)
+    .bind(params.id)
+    .first();
+  if (!existing) return jsonResponse({ error: "文章不存在" }, 404);
+
+  const url = new URL(request.url);
+  const permanent = url.searchParams.get("permanent") === "1";
+
+  // 已发布文章首次删除：先安全移入草稿箱，防止误删
+  if (existing.published || !permanent) {
+    const now = new Date().toISOString();
+    await env.DB.prepare(`UPDATE posts SET published = 0, updated_at = ? WHERE id = ?`)
+      .bind(now, params.id)
+      .run();
+    return jsonResponse({
+      ok: true,
+      action: "moved_to_draft",
+      post: serializePost({ ...existing, published: 0, updated_at: now })
+    });
+  }
+
+  // 仅草稿箱内二次确认后才执行永久删除
   await env.DB.prepare(`DELETE FROM posts WHERE id = ?`).bind(params.id).run();
-  return jsonResponse({ ok: true });
+  return jsonResponse({ ok: true, action: "deleted" });
 }

@@ -26,8 +26,9 @@
     configured: true,
     homeCategory: "全部",
     homeSearch: "",
-    adminTab: "list", // 'list' | 'editor' | 'taxonomies' | 'settings'
+    adminTab: "list", // 'list' | 'drafts' | 'editor' | 'taxonomies' | 'settings'
     editingPostId: null,
+    recentlyDraftedId: null,
     uploadTarget: null // 'cover' | 'inline' | 'avatar'
   };
 
@@ -523,6 +524,8 @@
 
     await Promise.all([loadAdminPosts(), loadTaxonomies()]);
 
+    const publishedPosts = state.adminPosts.filter((p) => p.published);
+    const draftPosts = state.adminPosts.filter((p) => !p.published);
     const catCount = state.taxonomies.categories.length;
     const tagCount = state.taxonomies.tags.length;
 
@@ -537,7 +540,8 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div class="admin-tabs">
-            <button type="button" class="admin-tab${state.adminTab === "list" ? " active" : ""}" data-tab="list">文章管理 (${state.adminPosts.length})</button>
+            <button type="button" class="admin-tab${state.adminTab === "list" ? " active" : ""}" data-tab="list">已发布 (${publishedPosts.length})</button>
+            <button type="button" class="admin-tab${state.adminTab === "drafts" ? " active" : ""}" data-tab="drafts">草稿箱 (${draftPosts.length})</button>
             <button type="button" class="admin-tab${state.adminTab === "editor" ? " active" : ""}" data-tab="editor">${state.editingPostId ? "编辑文章" : "写新文章"}</button>
             <button type="button" class="admin-tab${state.adminTab === "taxonomies" ? " active" : ""}" data-tab="taxonomies">分类与标签 (${catCount}/${tagCount})</button>
             <button type="button" class="admin-tab${state.adminTab === "settings" ? " active" : ""}" data-tab="settings">站点设置</button>
@@ -553,6 +557,9 @@
         if (btn.dataset.tab === "editor" && state.adminTab !== "editor") {
           state.editingPostId = null;
         }
+        if (btn.dataset.tab !== "drafts") {
+          state.recentlyDraftedId = null;
+        }
         state.adminTab = btn.dataset.tab;
         renderAdmin();
       });
@@ -566,29 +573,33 @@
     });
 
     const panel = document.getElementById("admin-panel");
-    if (state.adminTab === "list") renderAdminList(panel);
+    if (state.adminTab === "list") renderAdminList(panel, publishedPosts);
+    else if (state.adminTab === "drafts") renderAdminDrafts(panel, draftPosts);
     else if (state.adminTab === "editor") renderAdminEditor(panel);
     else if (state.adminTab === "taxonomies") renderAdminTaxonomies(panel);
     else renderAdminSettings(panel);
   }
 
-  function renderAdminList(panel) {
+  function renderAdminList(panel, publishedPosts) {
     panel.innerHTML = `
       <div class="admin-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <strong style="font-size:15px;">全部文章</strong>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;">
+          <div>
+            <strong style="font-size:15.5px;">已发布文章</strong>
+            <div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">点击「删除」会先将文章移入草稿箱，不会直接永久销毁</div>
+          </div>
           <button id="new-post-btn" class="btn btn-accent" type="button">+ 写新文章</button>
         </div>
         ${
-          state.adminPosts.length === 0
-            ? '<div class="empty-msg">还没有文章，点击右上角写下第一篇吧</div>'
-            : state.adminPosts
+          publishedPosts.length === 0
+            ? '<div class="empty-msg">还没有已发布文章，点击右上角写下第一篇吧</div>'
+            : publishedPosts
                 .map(
                   (p) => `
           <div class="admin-post-row">
             <div>
               <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span class="status-dot ${p.published ? "pub" : "draft"}">${p.published ? "已发布" : "草稿"}</span>
+                <span class="status-dot pub">已发布</span>
                 <strong style="font-size:15.5px;">${escapeHtml(p.title)}</strong>
               </div>
               <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">
@@ -600,7 +611,7 @@
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <a class="btn btn-outline" href="#/post/${encodeURIComponent(p.slug)}">查看</a>
               <button class="btn btn-outline edit-post-btn" type="button" data-id="${escapeHtml(p.id)}">编辑</button>
-              <button class="btn btn-danger del-post-btn" type="button" data-id="${escapeHtml(p.id)}">删除</button>
+              <button class="btn btn-danger del-post-btn" type="button" data-id="${escapeHtml(p.id)}" data-title="${escapeHtml(p.title)}">删除</button>
             </div>
           </div>`
                 )
@@ -626,15 +637,122 @@
     panel.querySelectorAll(".del-post-btn").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
-        if (!window.confirm("确认删除这篇文章吗？删除后无法恢复。")) return;
+        const title = btn.dataset.title || "这篇文章";
+        if (
+          !window.confirm(
+            `确认将《${title}》移入草稿箱吗？\n\n移入后前台将隐藏该文章，你可以随时在草稿箱中恢复发布，或再次确认彻底删除。`
+          )
+        ) {
+          return;
+        }
         try {
           await api(`/api/posts/${encodeURIComponent(id)}`, { method: "DELETE" });
-          await refreshPublicPosts();
-          await loadAdminPosts();
-          showToast("文章已删除");
+          await Promise.all([refreshPublicPosts(), loadAdminPosts(), loadTaxonomies()]);
+          state.recentlyDraftedId = id;
+          state.adminTab = "drafts";
+          showToast(`《${title}》已移入草稿箱，如需永久删除请在此再次确认`);
           renderAdmin();
         } catch (err) {
-          showToast("删除失败：" + err.message);
+          showToast("移入草稿箱失败：" + err.message);
+        }
+      });
+    });
+  }
+
+  function renderAdminDrafts(panel, draftPosts) {
+    panel.innerHTML = `
+      <div class="admin-card">
+        <div class="draft-banner">
+          <div>
+            <strong>草稿箱（安全回收与待发布区）</strong>
+            <p>草稿箱里的文章仅你本人可见，访客无法浏览。你可以在这里继续编辑、一键恢复发布，或点击「彻底删除」再次确认永久移除。</p>
+          </div>
+          <button id="draft-new-post-btn" class="btn btn-outline" type="button" style="flex-shrink:0">+ 写新草稿</button>
+        </div>
+        ${
+          draftPosts.length === 0
+            ? '<div class="empty-msg">草稿箱目前是空的 ✨</div>'
+            : draftPosts
+                .map((p) => {
+                  const isRecent = state.recentlyDraftedId === p.id;
+                  return `
+          <div class="admin-post-row${isRecent ? " just-moved" : ""}">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="status-dot draft">草稿</span>
+                ${isRecent ? '<span class="status-dot recent">刚刚移入</span>' : ""}
+                <strong style="font-size:15.5px;">${escapeHtml(p.title)}</strong>
+              </div>
+              <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">
+                ${escapeHtml(p.published_at)} · 分类：${escapeHtml(p.category || "随笔")} ${
+                  p.tags?.length ? `· 标签：${p.tags.map(escapeHtml).join(" / ")}` : ""
+                }
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline edit-draft-btn" type="button" data-id="${escapeHtml(p.id)}">编辑</button>
+              <button class="btn btn-accent restore-draft-btn" type="button" data-id="${escapeHtml(p.id)}" data-title="${escapeHtml(p.title)}">恢复发布</button>
+              <button class="btn btn-danger hard-del-btn" type="button" data-id="${escapeHtml(p.id)}" data-title="${escapeHtml(p.title)}">彻底删除</button>
+            </div>
+          </div>`;
+                })
+                .join("")
+        }
+      </div>
+    `;
+
+    document.getElementById("draft-new-post-btn").addEventListener("click", () => {
+      state.editingPostId = null;
+      state.adminTab = "editor";
+      renderAdmin();
+    });
+
+    panel.querySelectorAll(".edit-draft-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.editingPostId = btn.dataset.id;
+        state.adminTab = "editor";
+        renderAdmin();
+      });
+    });
+
+    panel.querySelectorAll(".restore-draft-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title || "这篇文章";
+        try {
+          await api(`/api/posts/${encodeURIComponent(id)}`, {
+            method: "PUT",
+            body: JSON.stringify({ published: true })
+          });
+          await Promise.all([refreshPublicPosts(), loadAdminPosts(), loadTaxonomies()]);
+          state.recentlyDraftedId = null;
+          showToast(`《${title}》已恢复公开发布 ✓`);
+          renderAdmin();
+        } catch (err) {
+          showToast("恢复发布失败：" + err.message);
+        }
+      });
+    });
+
+    panel.querySelectorAll(".hard-del-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title || "这篇文章";
+        if (
+          !window.confirm(
+            `⚠️ 二次确认：确定要从草稿箱彻底删除《${title}》吗？\n\n彻底删除后文章将永久消失，无法再恢复！`
+          )
+        ) {
+          return;
+        }
+        try {
+          await api(`/api/posts/${encodeURIComponent(id)}?permanent=1`, { method: "DELETE" });
+          await Promise.all([refreshPublicPosts(), loadAdminPosts(), loadTaxonomies()]);
+          if (state.recentlyDraftedId === id) state.recentlyDraftedId = null;
+          showToast(`《${title}》已彻底删除`);
+          renderAdmin();
+        } catch (err) {
+          showToast("彻底删除失败：" + err.message);
         }
       });
     });
@@ -1332,7 +1450,8 @@
         if (payload.published && res.post?.slug) {
           window.location.hash = `#/post/${encodeURIComponent(res.post.slug)}`;
         } else {
-          state.adminTab = "list";
+          state.recentlyDraftedId = res.post?.id || null;
+          state.adminTab = "drafts";
           renderAdmin();
         }
       } catch (err) {
