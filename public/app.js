@@ -171,6 +171,13 @@
       .sort((a, b) => b.items.length - a.items.length);
   }
 
+  const EYE_ICON_SVG =
+    '<svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+  function formatViewsText(n) {
+    return `${Number(n || 0)} 次浏览`;
+  }
+
   function renderPostListHtml(posts) {
     if (!posts.length) {
       return '<div class="empty-msg">这里暂时还没有文章 ✨</div>';
@@ -181,6 +188,7 @@
           post.abstract || stripMarkdown(post.content).slice(0, 120) + "...";
         const mins = estimateReadMinutes(post.content);
         const cat = post.category || "随笔";
+        const views = Number(post.views || 0);
         const tagsHtml = (post.tags || [])
           .map(
             (t) =>
@@ -204,6 +212,8 @@
                 <span>${escapeHtml(post.published_at)}</span>
                 <span class="meta-sep">·</span>
                 <span>约 ${mins} 分钟阅读</span>
+                <span class="meta-sep">·</span>
+                <span class="meta-views" title="文章浏览量">${EYE_ICON_SVG}<span>${formatViewsText(views)}</span></span>
                 <a class="meta-cat" href="#/category/${encodeURIComponent(cat)}">${escapeHtml(cat)}</a>
               </div>
               <div class="post-abstract">${escapeHtml(excerpt)}</div>
@@ -409,6 +419,7 @@
     const nextPost = idx !== -1 && idx + 1 < state.posts.length ? state.posts[idx + 1] : null;
     const mins = estimateReadMinutes(post.content);
     const cat = post.category || "随笔";
+    const views = Number(post.views || 0);
 
     el.appView.innerHTML = `
       <article class="post-detail">
@@ -425,6 +436,8 @@
           <span>${escapeHtml(post.published_at)}</span>
           <span class="meta-sep">·</span>
           <span>约 ${mins} 分钟阅读</span>
+          <span class="meta-sep">·</span>
+          <span id="post-detail-views" class="meta-views" title="文章浏览量">${EYE_ICON_SVG}<span>${formatViewsText(views)}</span></span>
           <a class="meta-cat" href="#/category/${encodeURIComponent(cat)}">${escapeHtml(cat)}</a>
         </div>
         ${
@@ -473,6 +486,23 @@
         state.adminTab = "editor";
         window.location.hash = "#/admin";
       });
+    }
+
+    // 统计文章浏览量并即时刷新标题下方的展示数字
+    if (post.published !== false) {
+      api(`/api/posts/${encodeURIComponent(post.slug)}/view`, { method: "POST" })
+        .then((res) => {
+          if (typeof res.views === "number") {
+            post.views = res.views;
+            const inList = state.posts.find((p) => p.id === post.id);
+            if (inList) inList.views = res.views;
+            const viewsNode = document.getElementById("post-detail-views");
+            if (viewsNode) {
+              viewsNode.innerHTML = `${EYE_ICON_SVG}<span>${formatViewsText(res.views)}</span>`;
+            }
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -603,7 +633,7 @@
                 <strong style="font-size:15.5px;">${escapeHtml(p.title)}</strong>
               </div>
               <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">
-                ${escapeHtml(p.published_at)} · 分类：${escapeHtml(p.category || "随笔")} ${
+                ${escapeHtml(p.published_at)} · 分类：${escapeHtml(p.category || "随笔")} · ${formatViewsText(p.views)} ${
                   p.tags?.length ? `· 标签：${p.tags.map(escapeHtml).join(" / ")}` : ""
                 }
               </div>
@@ -684,7 +714,7 @@
                 <strong style="font-size:15.5px;">${escapeHtml(p.title)}</strong>
               </div>
               <div style="font-size:12.5px;color:var(--text-muted);margin-top:4px;">
-                ${escapeHtml(p.published_at)} · 分类：${escapeHtml(p.category || "随笔")} ${
+                ${escapeHtml(p.published_at)} · 分类：${escapeHtml(p.category || "随笔")} · ${formatViewsText(p.views)} ${
                   p.tags?.length ? `· 标签：${p.tags.map(escapeHtml).join(" / ")}` : ""
                 }
               </div>

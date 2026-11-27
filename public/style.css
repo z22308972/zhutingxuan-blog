@@ -1080,6 +1080,18 @@ body.admin-fullscreen .content-container {
   color: #b45309;
 }
 
+.meta-views {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-views svg {
+  opacity: 0.78;
+  flex-shrink: 0;
+}
+
 .draft-banner {
   display: flex;
   align-items: center;

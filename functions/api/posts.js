@@ -107,6 +107,7 @@ export async function onRequestPost({ request, env }) {
         cover,
         category,
         tags,
+        views: 0,
         published: Boolean(published),
         published_at,
         created_at: now,

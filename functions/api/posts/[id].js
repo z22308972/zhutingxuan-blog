@@ -109,6 +109,7 @@ export async function onRequestPut({ request, env, params }) {
       cover,
       category,
       tags,
+      views: Number(existing.views || 0),
       published: Boolean(published),
       published_at,
       created_at: existing.created_at,
