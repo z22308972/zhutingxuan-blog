@@ -39,7 +39,15 @@
     });
 
     s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, rawUrl) => {
-      const safe = sanitizeUrl(rawUrl);
+      let safe = sanitizeUrl(rawUrl);
+      // 兼容旧版「链接」按钮误填 https://example.com 或空白 https:// 占位符：若显示文字本身就是网址则直接跳转到该真实网址
+      const trimmedLabel = String(label || "").trim();
+      if (
+        (/^https?:\/\/example\.com\/?$/i.test(safe) || /^https?:\/\/?$/i.test(safe) || !safe) &&
+        /^https?:\/\/\S+$/i.test(trimmedLabel)
+      ) {
+        safe = sanitizeUrl(trimmedLabel);
+      }
       if (!safe) return label;
       const ext = /^https?:\/\//i.test(safe) ? ' target="_blank" rel="noopener noreferrer"' : "";
       return stash(`<a href="${escapeHtml(safe)}"${ext}>${label}</a>`);
